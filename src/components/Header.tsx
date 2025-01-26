@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import MenuIcon from '@mui/icons-material/Menu';
-import logo from '../assets/Purple Friends Community Logo.png';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 export const Header = () => {
   const { user, logout } = useAuth();
@@ -31,6 +31,11 @@ export const Header = () => {
     }
   };
 
+  const handleSettings = () => {
+    handleClose();
+    navigate('/settings/profile');
+  };
+
   return (
     <AppBar position="static" elevation={0} className="glass-card border-0 border-b border-white border-opacity-20">
       <Toolbar className="container mx-auto px-4">
@@ -40,13 +45,6 @@ export const Header = () => {
           className="flex-1 flex items-center"
         >
           <Link to="/" className="text-white no-underline flex items-center gap-2">
-            <div className="w-6 h-6 flex items-center justify-center">
-              <img 
-                src={logo} 
-                alt="TidyTab Logo" 
-                className="w-full h-full object-contain block"
-              />
-            </div>
             <Typography 
               variant="h5" 
               component="span"
@@ -89,8 +87,8 @@ export const Header = () => {
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
           <div className="px-4 py-2 border-b border-white border-opacity-20">
-            <Typography variant="subtitle2" className="font-medium">
-              {user.displayName}
+            <Typography variant="subtitle2" className="font-medium text-white">
+              {user.displayName || user.email}
             </Typography>
             <Typography variant="caption" className="text-white text-opacity-60">
               {user.email}
@@ -100,13 +98,20 @@ export const Header = () => {
             component={Link}
             to="/dashboard"
             onClick={handleClose}
-            className="hover:bg-white hover:bg-opacity-10"
+            className="text-white hover:bg-white hover:bg-opacity-10"
           >
             My Tabs
           </MenuItem>
           <MenuItem
+            onClick={handleSettings}
+            className="text-white hover:bg-white hover:bg-opacity-10"
+          >
+            <SettingsIcon className="mr-2" fontSize="small" />
+            Settings
+          </MenuItem>
+          <MenuItem
             onClick={handleSignOut}
-            className="hover:bg-white hover:bg-opacity-10"
+            className="text-white hover:bg-white hover:bg-opacity-10"
           >
             Sign Out
           </MenuItem>

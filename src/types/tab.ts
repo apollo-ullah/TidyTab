@@ -6,10 +6,13 @@ export interface TabMember {
   joinedAt: Date;
 }
 
+export type TabCategory = 'restaurant' | 'activities' | 'other';
+
 export interface Tab {
   id: string;
   name: string;
   description?: string;
+  category: TabCategory;
   createdAt: Date;
   createdBy: TabMember;
   members: TabMember[];
@@ -18,4 +21,5 @@ export interface Tab {
 export interface CreateTabInput {
   name: string;
   description?: string;
+  category: TabCategory;
 } 

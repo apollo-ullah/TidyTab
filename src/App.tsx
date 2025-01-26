@@ -8,6 +8,7 @@ import { DashboardLayout } from './features/dashboard/DashboardLayout';
 import { CreateTab } from './features/dashboard/CreateTab';
 import { JoinTab } from './features/dashboard/JoinTab';
 import { TabView } from './features/dashboard/TabView';
+import { ProfileSettings } from './features/settings/ProfileSettings';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -53,6 +54,11 @@ function App() {
         <Route path="/tabs/:tabId" element={
           <ProtectedRoute>
             <TabView />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings/profile" element={
+          <ProtectedRoute>
+            <ProfileSettings />
           </ProtectedRoute>
         } />
       </Routes>

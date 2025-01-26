@@ -1,13 +1,32 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { createTab } from '../services/tabService';
+import { useAuth } from '../../contexts/AuthContext';
+import { createTab } from '../../services/tabService';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
+import { 
+  Box, 
+  Typography, 
+  TextField, 
+  Button, 
+  Container, 
+  ButtonGroup,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  FormControl,
+  FormLabel
+} from '@mui/material';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 export const CreateTab = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('restaurant');
   const [createdTab, setCreatedTab] = useState<{ id: string; name: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -17,11 +36,12 @@ export const CreateTab = () => {
 
     setIsLoading(true);
     try {
-      const tab = await createTab({ name, description }, user);
+      const tab = await createTab({ name, description, category }, user);
       setCreatedTab({ id: tab.id, name: tab.name });
       toast.success('Tab created successfully!');
       setName('');
       setDescription('');
+      setCategory('restaurant');
     } catch (error) {
       console.error('Error creating tab:', error);
       toast.error('Failed to create tab');
@@ -30,67 +50,298 @@ export const CreateTab = () => {
     }
   };
 
+  const handleCopyId = () => {
+    if (createdTab) {
+      navigator.clipboard.writeText(createdTab.id);
+      toast.success('Tab ID copied to clipboard!');
+    }
+  };
+
+  const handleGoToTab = () => {
+    if (createdTab) {
+      navigate(`/tabs/${createdTab.id}`);
+    }
+  };
+
+  if (createdTab) {
   return (
-    <div className="max-w-md mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Tab Name
-          </label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            required
-          />
-        </div>
+      <Box 
+        sx={{ 
+          pt: '84px',
+          minHeight: '100vh'
+        }}
+      >
+        <Container maxWidth="sm">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Box className="glass-card" sx={{ p: 3 }}>
+              <Typography variant="h4" sx={{ mb: 3, fontWeight: 700 }}>
+                Tab Created!
+              </Typography>
+              
+              <Typography 
+                sx={{ 
+                  mb: 4,
+                  color: 'rgba(255, 255, 255, 0.7)'
+                }}
+              >
+                Share this QR code or Tab ID with others:
+              </Typography>
 
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-            Description (Optional)
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            rows={3}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full btn-primary disabled:opacity-50"
-        >
-          {isLoading ? 'Creating...' : 'Create Tab'}
-        </button>
-      </form>
-
-      {createdTab && (
-        <div className="mt-8 p-4 border border-gray-200 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900">Tab Created!</h3>
-          <p className="text-sm text-gray-600">Share this QR code or Tab ID with others:</p>
-          
-          <div className="mt-4 flex flex-col items-center space-y-4">
+              <Box 
+                sx={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3
+                }}
+              >
+                <Box 
+                  sx={{ 
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    p: 3,
+                    borderRadius: 2,
+                    textAlign: 'center'
+                  }}
+                >
             <QRCodeSVG
               value={createdTab.id}
               size={200}
               level="H"
               includeMargin
-            />
+                    style={{ background: 'white', padding: 8, borderRadius: 8 }}
+                  />
+                </Box>
+
+                <Box sx={{ textAlign: 'center', width: '100%' }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      mb: 1
+                    }}
+                  >
+                    Tab ID:
+                  </Typography>
+                  <ButtonGroup 
+                    variant="outlined" 
+                    sx={{ 
+                      width: '100%',
+                      '& .MuiButtonGroup-grouped': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)'
+                      }
+                    }}
+                  >
+                    <Button
+                      sx={{
+                        flex: 1,
+                        color: 'white',
+                        fontFamily: 'monospace',
+                        fontSize: '1.1rem',
+                        textTransform: 'none',
+                        py: 1.5
+                      }}
+                      disabled
+                    >
+                      {createdTab.id}
+                    </Button>
+                    <Button
+                      onClick={handleCopyId}
+                      sx={{
+                        color: 'white',
+                        '&:hover': {
+                          borderColor: 'rgba(255, 255, 255, 0.3)',
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }
+                      }}
+                    >
+                      <ContentCopyIcon />
+                    </Button>
+                  </ButtonGroup>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  onClick={handleGoToTab}
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{
+                    mt: 2,
+                    py: 1.5,
+                    px: 4,
+                    background: 'linear-gradient(45deg, #6B46C1 30%, #805AD5 90%)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #553C9A 30%, #6B46C1 90%)',
+                    }
+                  }}
+                >
+                  Go to Tab
+                </Button>
+              </Box>
+            </Box>
+          </motion.div>
+        </Container>
+      </Box>
+    );
+  }
+
+  return (
+    <Box 
+      sx={{ 
+        pt: '84px',
+        minHeight: '100vh'
+      }}
+    >
+      <Container maxWidth="sm">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Box className="glass-card" sx={{ p: 3 }}>
+            <Typography variant="h4" sx={{ mb: 3, fontWeight: 700 }}>
+              Create a New Tab
+            </Typography>
             
-            <div className="text-center">
-              <p className="text-sm text-gray-500">Tab ID:</p>
-              <code className="block mt-1 text-lg font-mono bg-gray-100 px-3 py-1 rounded">
-                {createdTab.id}
-              </code>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            <Typography 
+              sx={{ 
+                mb: 4,
+                color: 'rgba(255, 255, 255, 0.7)'
+              }}
+            >
+              Create a new tab to start tracking shared expenses with friends.
+            </Typography>
+
+            <Box 
+              component="form" 
+              onSubmit={handleSubmit}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }}
+            >
+              <TextField
+                label="Tab Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                fullWidth
+                variant="outlined"
+                disabled={isLoading}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'rgba(179, 157, 219, 0.6)',
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                  },
+                }}
+              />
+
+              <FormControl>
+                <FormLabel 
+                  sx={{ 
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    '&.Mui-focused': {
+                      color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                  }}
+                >
+                  Category
+                </FormLabel>
+                <RadioGroup
+                  row
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  sx={{
+                    gap: 2,
+                    '& .MuiRadio-root': {
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      '&.Mui-checked': {
+                        color: '#B39DDB'
+                      }
+                    },
+                    '& .MuiFormControlLabel-label': {
+                      color: 'white'
+                    }
+                  }}
+                >
+                  <FormControlLabel 
+                    value="restaurant" 
+                    control={<Radio />} 
+                    label="Restaurant" 
+                  />
+                  <FormControlLabel 
+                    value="activities" 
+                    control={<Radio />} 
+                    label="Activities" 
+                  />
+                  <FormControlLabel 
+                    value="other" 
+                    control={<Radio />} 
+                    label="Other" 
+                  />
+                </RadioGroup>
+              </FormControl>
+
+              <TextField
+                label="Description (Optional)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                multiline
+                rows={3}
+                fullWidth
+                variant="outlined"
+                disabled={isLoading}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'rgba(179, 157, 219, 0.6)',
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                  },
+                }}
+              />
+              
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={isLoading}
+                sx={{
+                  py: 1.5,
+                  background: 'linear-gradient(45deg, #6B46C1 30%, #805AD5 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #553C9A 30%, #6B46C1 90%)',
+                  }
+                }}
+              >
+                {isLoading ? "Creating..." : "Create Tab"}
+              </Button>
+            </Box>
+          </Box>
+        </motion.div>
+      </Container>
+    </Box>
   );
 }; 

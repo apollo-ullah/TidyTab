@@ -7,8 +7,14 @@ import {
   onAuthStateChanged,
   User,
   sendPasswordResetEmail,
-  UserCredential
+  UserCredential,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +22,8 @@ interface AuthContextType {
   signup: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  signInWithGoogle: () => Promise<UserCredential | null>;
+  checkProfileSetup: (uid: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +51,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setLoading(false);
     });
 
+    // Check for redirect result when component mounts
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        setUser(result.user);
+      }
+    }).catch((error) => {
+      console.error("Error getting redirect result:", error);
+    });
+
     return unsubscribe;
   }, [auth]);
 
@@ -62,12 +79,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return sendPasswordResetEmail(auth, email);
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      // Try popup first
+      try {
+        return await signInWithPopup(auth, provider);
+      } catch (popupError: any) {
+        // If popup fails due to COOP, fall back to redirect
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/cancelled-popup-request' ||
+            popupError.message?.includes('Cross-Origin-Opener-Policy')) {
+          await signInWithRedirect(auth, provider);
+          return null; // Redirect will handle the result in useEffect
+        }
+        throw popupError;
+      }
+    } catch (error) {
+      console.error('Error in signInWithGoogle:', error);
+      throw error;
+    }
+  };
+
+  const checkProfileSetup = async (uid: string) => {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    return userDoc.exists();
+  };
+
   const value = {
     user,
     login,
     signup,
     logout,
-    resetPassword
+    resetPassword,
+    signInWithGoogle,
+    checkProfileSetup
   };
 
   return (

@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import LogoutIcon from '@mui/icons-material/Logout';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 
@@ -39,6 +40,11 @@ export const DashboardLayout = () => {
     } catch (error) {
       console.error('Failed to sign out:', error);
     }
+  };
+
+  const handleSettings = () => {
+    handleCloseMenu();
+    navigate('/settings/profile');
   };
 
   return (
@@ -99,21 +105,46 @@ export const DashboardLayout = () => {
               open={Boolean(anchorEl)}
               onClose={handleCloseMenu}
               PaperProps={{
-                elevation: 0,
                 sx: {
                   background: 'rgba(18, 18, 18, 0.95)',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                  mt: 1.5,
-                  minWidth: 200,
+                  color: 'white',
+                  minWidth: '200px',
+                  mt: 1
                 }
               }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              <MenuItem sx={{ opacity: 0.7 }}>
-                <Typography variant="body2">{user?.email}</Typography>
+              <Box sx={{ px: 2, py: 1, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                  {user?.displayName || user?.email}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  {user?.email}
+                </Typography>
+              </Box>
+              
+              <MenuItem
+                onClick={handleSettings}
+                sx={{
+                  color: 'white',
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.1)' }
+                }}
+              >
+                <SettingsIcon sx={{ mr: 1, fontSize: 20 }} />
+                Settings
               </MenuItem>
-              <MenuItem onClick={handleSignOut}>
-                <LogoutIcon sx={{ mr: 2, fontSize: 20 }} />
+
+              <MenuItem
+                onClick={handleSignOut}
+                sx={{
+                  color: 'white',
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.1)' }
+                }}
+              >
+                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
                 Sign Out
               </MenuItem>
             </Menu>
@@ -151,7 +182,7 @@ export const DashboardLayout = () => {
                       mb: 1
                     }}
                   >
-                    Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
+                    Welcome back{user?.displayName ? `, ${user.displayName}` : ''}!
                   </Typography>
                   <Typography 
                     sx={{ 

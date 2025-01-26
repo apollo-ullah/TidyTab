@@ -43,6 +43,7 @@ export const createTab = async (input: CreateTabInput, user: User): Promise<Tab>
     id: tabId,
     name: input.name,
     description: input.description,
+    category: input.category,
     createdAt: new Date(),
     createdBy: member,
     members: [member],

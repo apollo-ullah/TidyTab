@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import MenuIcon from '@mui/icons-material/Menu';
-import logo from '../assets/Purple Friends Community Logo.png';
 
 export const Header = () => {
   const { user, signOut } = useAuth();
@@ -40,13 +39,6 @@ export const Header = () => {
           className="flex-1 flex items-center"
         >
           <Link to="/" className="text-white no-underline flex items-center gap-2">
-            <div className="w-6 h-6 flex items-center justify-center">
-              <img 
-                src={logo} 
-                alt="TidyTab Logo" 
-                className="w-full h-full object-contain block"
-              />
-            </div>
             <Typography 
               variant="h5" 
               component="span"
