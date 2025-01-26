@@ -1,10 +1,14 @@
-import { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs, onSnapshot, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../config/firebase';
 import { Tab, CreateTabInput, TabMember } from '../types/tab';
 
 const TABS_COLLECTION = 'tabs';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const createTabId = () => {
   // Create a shorter, more user-friendly ID
@@ -19,6 +23,18 @@ const userToTabMember = (user: User): TabMember => ({
   joinedAt: new Date(),
 });
 
+async function retryOperation<T>(operation: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
+  try {
+    return await operation();
+  } catch (error: any) {
+    if (retries > 0 && (error.code === 'failed-precondition' || error.message.includes('offline'))) {
+      await wait(RETRY_DELAY);
+      return retryOperation(operation, retries - 1);
+    }
+    throw error;
+  }
+}
+
 export const createTab = async (input: CreateTabInput, user: User): Promise<Tab> => {
   const tabId = createTabId();
   const member = userToTabMember(user);
@@ -32,13 +48,13 @@ export const createTab = async (input: CreateTabInput, user: User): Promise<Tab>
     members: [member],
   };
 
-  await setDoc(doc(db, TABS_COLLECTION, tabId), newTab);
+  await retryOperation(() => setDoc(doc(db, TABS_COLLECTION, tabId), newTab));
   return newTab;
 };
 
 export const joinTab = async (tabId: string, user: User): Promise<Tab> => {
   const tabRef = doc(db, TABS_COLLECTION, tabId);
-  const tabDoc = await getDoc(tabRef);
+  const tabDoc = await retryOperation(() => getDoc(tabRef));
 
   if (!tabDoc.exists()) {
     throw new Error('Tab not found');
@@ -52,13 +68,13 @@ export const joinTab = async (tabId: string, user: User): Promise<Tab> => {
   }
 
   const updatedMembers = [...tab.members, member];
-  await updateDoc(tabRef, { members: updatedMembers });
+  await retryOperation(() => updateDoc(tabRef, { members: updatedMembers }));
 
   return { ...tab, members: updatedMembers };
 };
 
 export const getTab = async (tabId: string): Promise<Tab | null> => {
-  const tabDoc = await getDoc(doc(db, TABS_COLLECTION, tabId));
+  const tabDoc = await retryOperation(() => getDoc(doc(db, TABS_COLLECTION, tabId)));
   return tabDoc.exists() ? tabDoc.data() as Tab : null;
 };
 
@@ -68,7 +84,7 @@ export const getUserTabs = async (user: User): Promise<Tab[]> => {
     where('members', 'array-contains', { uid: user.uid })
   );
   
-  const querySnapshot = await getDocs(q);
+  const querySnapshot = await retryOperation(() => getDocs(q));
   return querySnapshot.docs.map(doc => doc.data() as Tab);
 };
 
@@ -79,11 +95,12 @@ export const subscribeToTab = (
 ) => {
   return onSnapshot(
     doc(db, TABS_COLLECTION, tabId),
-    (doc) => {
+    (doc: DocumentSnapshot<DocumentData>) => {
       if (doc.exists()) {
         onUpdate(doc.data() as Tab);
       }
     },
-    onError
+    onError,
+    { includeMetadataChanges: true }
   );
 }; 

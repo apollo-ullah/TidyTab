@@ -3,26 +3,173 @@
 @tailwind utilities;
 
 :root {
-  --gradient-start: #1a1a1a;
-  --gradient-mid: #4a148c;
-  --gradient-end: #7b1fa2;
+  --gradient-start: #000000;
+  --gradient-end: #2c0d52;
+  font-family: "Roboto Slab", serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer base {
   html {
-    font-family: system-ui, sans-serif;
+    font-family: "Roboto Slab", serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Bree Serif", serif;
+  }
+
+  code,
+  pre {
+    font-family: "Roboto Mono", monospace;
   }
 
   body {
     @apply min-h-screen;
     background: linear-gradient(
-      135deg,
+      to bottom,
       var(--gradient-start) 0%,
-      var(--gradient-mid) 50%,
       var(--gradient-end) 100%
     );
     color: white;
+    background-attachment: fixed;
   }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(
+    to bottom,
+    var(--gradient-start) 0%,
+    var(--gradient-end) 100%
+  );
+  color: white;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  transition: all 0.3s ease-in-out;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #673ab7 0%, #4a148c 100%);
+  color: white;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease-in-out;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 4px 15px rgba(74, 20, 140, 0.3);
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(74, 20, 140, 0.4);
+  background: linear-gradient(135deg, #7e57c2 0%, #5c1b9c 100%);
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease-in-out;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.hero-gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, #b39ddb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #9575cd 0%, #673ab7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Accordion Overrides */
+.MuiAccordion-root {
+  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  margin-bottom: 1rem !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+.MuiAccordion-root:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.MuiAccordion-root.Mui-expanded {
+  margin: 1rem 0 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.MuiAccordionSummary-root {
+  padding: 0 2rem !important;
+}
+
+.MuiAccordionDetails-root {
+  padding: 1rem 2rem 2rem !important;
+}
+
+/* Icons */
+.text-4xl {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
 }
 
 @layer components {
@@ -42,14 +189,41 @@
     @apply bg-white rounded-xl shadow-md p-6;
   }
 
+  .stars-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--duration) ease-in-out infinite;
+    opacity: 0;
+  }
+
   .glass-card {
     @apply bg-white bg-opacity-10 backdrop-blur-lg rounded-xl shadow-lg border border-white border-opacity-20;
   }
 
   .glass-button {
-    @apply px-6 py-2 rounded-lg font-medium transition-all duration-200 
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 
            bg-white bg-opacity-10 hover:bg-opacity-20 backdrop-blur-lg
            border border-white border-opacity-20 hover:border-opacity-40
+           text-white shadow-lg hover:shadow-xl
+           transform hover:-translate-y-0.5;
+  }
+
+  .primary-button {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200
+           bg-gradient-to-r from-purple-600 to-purple-400
+           hover:from-purple-500 hover:to-purple-300
            text-white shadow-lg hover:shadow-xl
            transform hover:-translate-y-0.5;
   }
@@ -59,31 +233,41 @@
     background-image: linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%);
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
+  .hero-gradient-text {
+    @apply text-transparent bg-clip-text font-extrabold;
+    background-image: linear-gradient(135deg, #fff 0%, #e1bee7 100%);
   }
 
-  .animate-slide-up {
-    animation: slideUp 0.5s ease-out;
+  .feature-card {
+    @apply p-6 rounded-xl transition-all duration-300
+           bg-white bg-opacity-5 hover:bg-opacity-10
+           border border-white border-opacity-10 hover:border-opacity-20
+           transform hover:-translate-y-1;
+  }
+
+  .floating {
+    animation: floating 3s ease-in-out infinite;
   }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+@keyframes floating {
+  0% {
+    transform: translateY(0px);
   }
-  to {
-    opacity: 1;
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
   }
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
+@keyframes twinkle {
+  0%,
+  100% {
     opacity: 0;
   }
-  to {
-    transform: translateY(0);
+  50% {
     opacity: 1;
   }
 }
