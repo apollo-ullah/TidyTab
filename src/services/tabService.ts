@@ -1,308 +1,322 @@
-import { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs, onSnapshot, DocumentSnapshot, DocumentData, DocumentReference, WithFieldValue, UpdateData } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
+  onSnapshot,
+  DocumentSnapshot,
+  DocumentData,
+  CollectionReference,
+  FirestoreDataConverter,
+} from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../config/firebase';
-import { Tab, CreateTabInput, TabMember, TabStatus, Expense, ExpenseItem } from '../types/tab';
+
+import {
+  Tab,
+  CreateTabInput,
+  TabMember,
+  TabStatus,
+  Expense,
+  ExpenseItem,
+} from '../types/tab';
 import { OCRResult } from '../services/ocrService';
 
 const TABS_COLLECTION = 'tabs';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// ---------------------------
+// Firestore Converter for Tab
+// ---------------------------
+const tabConverter: FirestoreDataConverter<Tab> = {
+  toFirestore(tab: Tab): DocumentData {
+    // Remove undefined values and handle resolvedAt properly
+    const data = {
+      name: tab.name,
+      description: tab.description,
+      category: tab.category,
+      date: tab.date,
+      createdAt: tab.createdAt,
+      createdBy: tab.createdBy,
+      members: tab.members,
+      memberDetails: tab.memberDetails,
+      expenses: tab.expenses || [],
+      totalAmount: tab.totalAmount || 0,
+      status: tab.status || 'active',
+      resolvedAt: tab.resolvedAt || null // Ensure resolvedAt is never undefined
+    } as Record<string, any>;
 
-const createTabId = () => {
-  // Create a shorter, more user-friendly ID
-  return uuidv4().slice(0, 8);
+    // Remove any remaining undefined values
+    Object.keys(data).forEach(key => {
+      if (data[key] === undefined) {
+        delete data[key];
+      }
+    });
+
+    return data;
+  },
+  fromFirestore(snapshot: DocumentSnapshot): Tab {
+    const data = snapshot.data()!;
+    return {
+      id: snapshot.id,
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      date: data.date?.toDate?.() || new Date(data.date),
+      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      createdBy: data.createdBy,
+      members: data.members || [],
+      memberDetails: data.memberDetails || {},
+      expenses: data.expenses || [],
+      totalAmount: data.totalAmount || 0,
+      status: data.status || 'active',
+      resolvedAt: data.resolvedAt?.toDate?.() || null
+    };
+  },
 };
 
-const userToTabMember = (user: User): TabMember => {
-  // Create a stable member object without the joinedAt field
-  const stableMember = {
-    uid: user.uid,
-    email: user.email!,
-    displayName: user.displayName,
-    photoURL: user.photoURL,
-    balance: 0
-  };
-  
-  // Add joinedAt only when creating a new member
-  return {
-    ...stableMember,
-    joinedAt: new Date()
-  };
-};
+// Typed collection reference
+const tabsCollection = collection(db, TABS_COLLECTION).withConverter(
+  tabConverter
+) as CollectionReference<Tab>;
 
-const retryOperation = async <T>(operation: () => Promise<T>): Promise<T> => {
+// ----------------------
+// Utility: Retry Wrapper
+// ----------------------
+async function retryOperation<T>(operation: () => Promise<T>): Promise<T> {
   let lastError: Error | null = null;
   for (let i = 0; i < MAX_RETRIES; i++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error as Error;
-      await wait(RETRY_DELAY * Math.pow(2, i));
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY * 2 ** i));
     }
   }
   throw lastError;
-};
+}
 
-export const createTab = async (input: CreateTabInput, user: User): Promise<string> => {
-  try {
-    const tabRef = doc(collection(db, 'tabs'));
-    
-    // Create member details object
-    const memberDetails = {
-      uid: user.uid,
-      email: user.email!,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      balance: 0,
-      joinedAt: new Date()
-    };
-
-    const newTab: Omit<Tab, 'id'> = {
-      name: input.name,
-      description: input.description,
-      category: input.category,
-      date: input.date,
-      createdAt: new Date(),
-      createdBy: memberDetails,
-      members: [user.uid], // Store only UIDs in members array
-      memberDetails: { // Store full member details in a map
-        [user.uid]: memberDetails
-      },
-      expenses: [],
-      totalAmount: 0,
-      status: 'active'
-    };
-
-    console.log('Creating new tab with structure:', JSON.stringify({
-      ...newTab,
-      members: newTab.members,
-      memberDetails: newTab.memberDetails
-    }, null, 2));
-    
-    await setDoc(tabRef, newTab);
-    console.log('Tab created with ID:', tabRef.id);
-    
-    // Verify the tab was stored correctly
-    const verifyDoc = await getDoc(tabRef);
-    const verifyData = verifyDoc.data();
-    console.log('Verification - stored tab data:', {
-      id: tabRef.id,
-      name: verifyData?.name,
-      members: verifyData?.members,
-      memberDetails: verifyData?.memberDetails
-    });
-    
-    return tabRef.id;
-  } catch (error) {
-    console.error('Error creating tab:', error);
-    throw error;
-  }
-};
-
-export const joinTab = async (tabId: string, user: User): Promise<Tab> => {
-  const tabRef = doc(db, TABS_COLLECTION, tabId);
-  const tabDoc = await retryOperation(() => getDoc(tabRef));
-
-  if (!tabDoc.exists()) {
-    throw new Error('Tab not found');
-  }
-
-  const tab = tabDoc.data() as Tab;
-  
-  // Check if user is already a member
-  if (tab.members.includes(user.uid)) {
-    return tab;
-  }
-
-  // Create member details
-  const memberDetails = {
+// --------------------------
+// Utility: Convert User -> Member
+// --------------------------
+function userToTabMember(user: User): TabMember {
+  return {
     uid: user.uid,
     email: user.email!,
     displayName: user.displayName,
     photoURL: user.photoURL,
     balance: 0,
-    joinedAt: new Date()
+    joinedAt: new Date(),
+  };
+}
+
+// --------------
+// CREATE A NEW TAB
+// --------------
+export async function createTab(
+  input: CreateTabInput,
+  user: User
+): Promise<string> {
+  // The user becomes the first member
+  const memberDetails = userToTabMember(user);
+
+  const newTab: Omit<Tab, 'id'> = {
+    name: input.name,
+    description: input.description,
+    category: input.category,
+    date: input.date,
+    createdAt: new Date(),
+    createdBy: memberDetails, // The full user info of who created it
+    members: [user.uid],      // Just store UIDs here
+    memberDetails: {
+      [user.uid]: memberDetails, // Store detailed member info in a map
+    },
+    expenses: [],
+    totalAmount: 0,
+    status: 'active',
   };
 
-  // Update the tab with new member
-  const updates = {
+  // Firestore automatically creates an ID with addDoc
+  const docRef = await addDoc(tabsCollection, newTab);
+  return docRef.id;
+}
+
+// ----------
+// JOIN A TAB
+// ----------
+export async function joinTab(tabId: string, user: User): Promise<Tab> {
+  const tabRef = doc(tabsCollection, tabId);
+  const tabSnap = await retryOperation(() => getDoc(tabRef));
+
+  if (!tabSnap.exists()) {
+    throw new Error('Tab not found');
+  }
+  const tab = tabSnap.data();
+
+  // If already a member, just return
+  if (tab.members.includes(user.uid)) {
+    return tab;
+  }
+
+  // Otherwise, add them
+  const newMember = userToTabMember(user);
+  const updatedTabData: Partial<Tab> = {
     members: [...tab.members, user.uid],
     memberDetails: {
       ...tab.memberDetails,
-      [user.uid]: memberDetails
-    }
+      [user.uid]: newMember,
+    },
   };
 
-  await retryOperation(() => updateDoc(tabRef, updates));
+  await retryOperation(() => updateDoc(tabRef, updatedTabData));
+  return { ...tab, ...updatedTabData };
+}
 
-  return {
-    ...tab,
-    ...updates
-  };
-};
+// -------------
+// GET ONE TAB
+// -------------
+export async function getTab(tabId: string): Promise<Tab | null> {
+  const tabRef = doc(tabsCollection, tabId);
+  const tabSnap = await retryOperation(() => getDoc(tabRef));
 
-export const getTab = async (tabId: string): Promise<Tab | null> => {
-  try {
-    const tabDoc = await retryOperation(() => getDoc(doc(db, TABS_COLLECTION, tabId)));
-    if (!tabDoc.exists()) return null;
-
-    const data = tabDoc.data();
-    return {
-      ...data,
-      id: tabDoc.id,
-      members: data.members || [],
-      expenses: data.expenses || [],
-      totalAmount: data.totalAmount || 0,
-    } as Tab;
-  } catch (error) {
-    console.error('Error getting tab:', error);
-    throw error;
+  if (!tabSnap.exists()) {
+    return null;
   }
-};
+  return tabSnap.data();
+}
 
-export const getUserTabs = async (user: User, status?: TabStatus): Promise<Tab[]> => {
-  try {
-    console.log('Getting tabs for user:', user.uid, 'with status:', status);
-    const tabsRef = collection(db, TABS_COLLECTION);
-    
-    // Query using just the UID
-    let q = query(
-      tabsRef,
-      where('members', 'array-contains', user.uid)
-    );
-
-    if (status) {
-      q = query(q, where('status', '==', status));
-    }
-    
-    const querySnapshot = await retryOperation(() => getDocs(q));
-    console.log('Found tabs:', querySnapshot.docs.length);
-    
-    // Add more detailed logging
-    querySnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      console.log('Raw tab data:', {
-        id: doc.id,
-        name: data.name,
-        members: data.members,
-        memberDetails: data.memberDetails,
-        status: data.status
-      });
-    });
-    
-    const tabs = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        ...data,
-        id: doc.id,
-        createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
-        date: data.date?.toDate?.() || new Date(data.date),
-        memberDetails: Object.entries(data.memberDetails || {}).reduce((acc, [uid, member]: [string, any]) => ({
-          ...acc,
-          [uid]: {
-            ...member,
-            joinedAt: member.joinedAt?.toDate?.() || new Date(member.joinedAt)
-          }
-        }), {}),
-        expenses: data.expenses?.map((expense: any) => ({
-          ...expense,
-          date: expense.date?.toDate?.() || new Date(expense.date),
-          createdAt: expense.createdAt?.toDate?.() || new Date(expense.createdAt)
-        })) || [],
-        totalAmount: data.totalAmount || 0,
-        status: data.status || 'active',
-        resolvedAt: data.resolvedAt?.toDate?.() || (data.resolvedAt ? new Date(data.resolvedAt) : undefined)
-      } as Tab;
-    });
-    
-    console.log('Processed tabs:', tabs);
-    return tabs;
-  } catch (error) {
-    console.error('Error getting user tabs:', error);
-    throw error;
+// -----------------
+// GET TABS FOR USER
+// -----------------
+export async function getUserTabs(
+  user: User,
+  status?: TabStatus
+): Promise<Tab[]> {
+  let q = query(tabsCollection, where('members', 'array-contains', user.uid));
+  if (status) {
+    q = query(q, where('status', '==', status));
   }
-};
 
-export const subscribeToTab = (
+  const snapshot = await retryOperation(() => getDocs(q));
+  return snapshot.docs.map((doc) => doc.data());
+}
+
+// -----------------------
+// REALTIME TAB SUBSCRIBE
+// -----------------------
+export function subscribeToTab(
   tabId: string,
   onUpdate: (tab: Tab) => void,
   onError: (error: Error) => void
-) => {
-  return onSnapshot(
-    doc(db, TABS_COLLECTION, tabId),
-    (doc: DocumentSnapshot<DocumentData>) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        onUpdate({
-          ...data,
-          id: doc.id,
-          members: data.members || [],
-          expenses: data.expenses || [],
-          totalAmount: data.totalAmount || 0,
-        } as Tab);
+) {
+  const tabRef = doc(tabsCollection, tabId);
+  return onSnapshot(tabRef, {
+    next: (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data());
       }
     },
-    onError,
-    { includeMetadataChanges: true }
+    error: onError,
+    // If you want to track metadata, you can do so here:
+    // includeMetadataChanges: true
+  });
+}
+
+// -----------------
+// RESOLVE A TAB
+// -----------------
+export async function resolveTab(tabId: string): Promise<void> {
+  const tabRef = doc(tabsCollection, tabId);
+  await retryOperation(() =>
+    updateDoc(tabRef, {
+      status: 'resolved',
+      resolvedAt: new Date(),
+    })
   );
-};
+}
 
-export const resolveTab = async (tabId: string): Promise<void> => {
-  try {
-    const tabRef = doc(db, TABS_COLLECTION, tabId);
-    await retryOperation(() => 
-      updateDoc(tabRef, {
-        status: 'resolved',
-        resolvedAt: new Date()
-      })
-    );
-  } catch (error) {
-    console.error('Error resolving tab:', error);
-    throw error;
-  }
-};
+// -----------------
+// RE-OPEN A TAB
+// -----------------
+export async function reopenTab(tabId: string): Promise<void> {
+  const tabRef = doc(tabsCollection, tabId);
+  await retryOperation(() =>
+    updateDoc(tabRef, {
+      status: 'active',
+      resolvedAt: null,
+    })
+  );
+}
 
-export const reopenTab = async (tabId: string): Promise<void> => {
-  try {
-    const tabRef = doc(db, TABS_COLLECTION, tabId);
-    await retryOperation(() => 
-      updateDoc(tabRef, {
-        status: 'active',
-        resolvedAt: null
-      })
-    );
-  } catch (error) {
-    console.error('Error reopening tab:', error);
-    throw error;
-  }
-};
+// --------------------------------------------------------
+// HELPER: CREATE OR UPDATE AN EXPENSE INSIDE AN EXISTING TAB
+// --------------------------------------------------------
+async function createExpenseInTab(tabId: string, expense: Expense, tab: Tab) {
+  const tabRef = doc(tabsCollection, tabId);
 
-export const createExpenseFromOCR = async (
+  // Current values
+  const currentExpenses = tab.expenses ?? [];
+  const currentTotal = tab.totalAmount ?? 0;
+  const currentMembers = tab.members ?? [];
+  const memberDetails = { ...tab.memberDetails };
+
+  // Even-split calculation
+  const splitAmount = expense.amount / currentMembers.length;
+
+  // Update each member's balance
+  currentMembers.forEach((uid) => {
+    const existingBalance = memberDetails[uid]?.balance || 0;
+    // The payer owes "splitAmount" less, effectively their share is 0
+    // so they pay the total, but get credited the portion from others
+    if (uid === expense.paidBy) {
+      memberDetails[uid] = {
+        ...memberDetails[uid],
+        balance: existingBalance + (expense.amount - splitAmount),
+      };
+    } else {
+      // Everyone else is debited their split
+      memberDetails[uid] = {
+        ...memberDetails[uid],
+        balance: existingBalance - splitAmount,
+      };
+    }
+  });
+
+  // Prepare the merged doc update
+  const updatedTab: Partial<Tab> = {
+    expenses: [...currentExpenses, expense],
+    totalAmount: currentTotal + expense.amount,
+    memberDetails: memberDetails,
+  };
+
+  // Persist update
+  await retryOperation(() => updateDoc(tabRef, updatedTab));
+}
+
+// -------------------------------------------
+// CREATE EXPENSE FROM OCR (Auto-parsed data)
+// -------------------------------------------
+export async function createExpenseFromOCR(
   tabId: string,
   user: User,
   ocrResult: OCRResult,
   receiptURL?: string
-): Promise<void> => {
-  console.log('Creating expense from OCR result:', ocrResult);
-  
-  const tabRef = doc(db, TABS_COLLECTION, tabId);
-  const tabDoc = await retryOperation(() => getDoc(tabRef));
+) {
+  const tabRef = doc(tabsCollection, tabId);
+  const tabSnap = await retryOperation(() => getDoc(tabRef));
 
-  if (!tabDoc.exists()) {
+  if (!tabSnap.exists()) {
     throw new Error('Tab not found');
   }
+  const tab = tabSnap.data();
 
-  const tab = tabDoc.data() as Tab;
-
-  // Safely handle existing fields with defaults
-  const currentExpenses = Array.isArray(tab.expenses) ? tab.expenses : [];
-  const currentMemberDetails = tab.memberDetails || {};
-  const currentTotalAmount = tab.totalAmount || 0;
-
-  // Create the expense object
   const expense: Expense = {
     id: uuidv4(),
     description: ocrResult.merchantName || 'Unknown Merchant',
@@ -310,59 +324,24 @@ export const createExpenseFromOCR = async (
     date: new Date(),
     paidBy: user.uid,
     receiptURL,
-    items: (ocrResult.lineItems || []).map(item => ({
+    createdAt: new Date(),
+    createdBy: user.uid,
+    items: (ocrResult.lineItems || []).map((item) => ({
       name: item.name || 'Unknown Item',
       quantity: item.quantity || 1,
       unitPrice: item.unitPrice || 0,
       totalPrice: item.totalPrice || 0,
-      assignedTo: tab.members // Assign to all members by default for even split
+      // By default, each item is assigned to all members for even split
+      assignedTo: [...(tab.members ?? [])],
     })),
-    createdAt: new Date(),
-    createdBy: user.uid
   };
 
-  // Calculate even split amount
-  const splitAmount = expense.amount / tab.members.length;
-  console.log('Split amount per member:', splitAmount);
+  await createExpenseInTab(tabId, expense, tab);
+}
 
-  // Update member balances with the split amount
-  const updatedMemberDetails = { ...currentMemberDetails };
-  tab.members.forEach(memberUid => {
-    const currentBalance = updatedMemberDetails[memberUid]?.balance || 0;
-    updatedMemberDetails[memberUid] = {
-      ...updatedMemberDetails[memberUid],
-      balance: currentBalance + (memberUid === user.uid ? expense.amount - splitAmount : splitAmount)
-    };
-  });
-
-  // Prepare updates with safe merging
-  const updates = {
-    expenses: [...currentExpenses, expense],
-    totalAmount: currentTotalAmount + expense.amount,
-    memberDetails: updatedMemberDetails
-  };
-
-  console.log('Updating tab with:', {
-    expenseId: expense.id,
-    amount: expense.amount,
-    items: expense.items.length,
-    memberUpdates: Object.fromEntries(
-      Object.entries(updatedMemberDetails).map(([uid, member]) => [
-        uid,
-        { balance: member.balance }
-      ])
-    )
-  });
-
-  try {
-    await retryOperation(() => updateDoc(tabRef, updates));
-    console.log('Expense created successfully');
-  } catch (error) {
-    console.error('Error updating tab with expense:', error);
-    throw new Error('Failed to create expense. Please try again.');
-  }
-};
-
+// ----------------------------------------------
+// CREATE A MANUAL EXPENSE (User-input form data)
+// ----------------------------------------------
 interface ManualExpenseInput {
   description: string;
   amount: number;
@@ -372,84 +351,43 @@ interface ManualExpenseInput {
   createdBy: string;
 }
 
-export const addManualExpense = async (tabId: string, user: User, expenseInput: ManualExpenseInput): Promise<void> => {
-  console.log("Adding manual expense:", expenseInput);
-  
-  const tabRef = doc(db, TABS_COLLECTION, tabId);
-  const tabDoc = await getDoc(tabRef);
-  
-  if (!tabDoc.exists()) {
-    throw new Error("Tab not found");
+export async function addManualExpense(
+  tabId: string,
+  user: User,
+  input: ManualExpenseInput
+) {
+  const tabRef = doc(tabsCollection, tabId);
+  const tabSnap = await getDoc(tabRef);
+
+  if (!tabSnap.exists()) {
+    throw new Error('Tab not found');
   }
+  const tab = tabSnap.data();
 
-  const tab = tabDoc.data() as Tab;
-  const currentExpenses = Array.isArray(tab.expenses) ? tab.expenses : [];
-  const currentTotalAmount = tab.totalAmount || 0;
-  const currentMemberDetails = tab.memberDetails || {};
-
-  // Create the expense object with all required fields
   const newExpense: Expense = {
     id: uuidv4(),
-    description: expenseInput.description,
-    amount: expenseInput.amount,
-    date: new Date(), // Use current date
-    paidBy: expenseInput.paidBy,
-    ...(expenseInput.receiptURL ? { receiptURL: expenseInput.receiptURL } : {}),
-    items: expenseInput.items.map(item => ({
-      ...item,
-      assignedTo: item.assignedTo?.length ? item.assignedTo : Object.keys(currentMemberDetails),
-      quantity: item.quantity || 1,
-      unitPrice: item.unitPrice || item.totalPrice || 0,
-      totalPrice: item.totalPrice || (item.unitPrice * (item.quantity || 1)) || 0
-    })),
+    description: input.description,
+    amount: input.amount,
+    date: new Date(),
+    paidBy: input.paidBy,
     createdAt: new Date(),
-    createdBy: expenseInput.createdBy
+    createdBy: input.createdBy,
+    receiptURL: input.receiptURL,
+    items: input.items.map((item) => ({
+      ...item,
+      // If none assigned, default to all tab members
+      assignedTo: item.assignedTo?.length
+        ? item.assignedTo
+        : Object.keys(tab.memberDetails || {}),
+      quantity: item.quantity ?? 1,
+      // Fall back to unitPrice or compute from totalPrice
+      unitPrice: item.unitPrice ?? item.totalPrice ?? 0,
+      totalPrice:
+        item.totalPrice ??
+        (item.unitPrice || 0) * (item.quantity || 1) ??
+        0,
+    })),
   };
 
-  // Calculate even split amount
-  const memberCount = Object.keys(currentMemberDetails).length;
-  const splitAmount = memberCount > 0 ? newExpense.amount / memberCount : 0;
-  console.log("Split amount per member:", splitAmount);
-
-  // Update member balances with the split amount
-  const updatedMemberDetails = { ...currentMemberDetails };
-  Object.keys(currentMemberDetails).forEach(memberUid => {
-    const member = updatedMemberDetails[memberUid];
-    if (!member) return;
-    
-    const currentBalance = member.balance || 0;
-    updatedMemberDetails[memberUid] = {
-      ...member,
-      balance: currentBalance + (memberUid === newExpense.paidBy ? 
-        newExpense.amount - splitAmount : 
-        -splitAmount)
-    };
-  });
-
-  // Prepare updates with safe merging
-  const updates: UpdateData<Tab> = {
-    expenses: [...currentExpenses, newExpense],
-    totalAmount: currentTotalAmount + newExpense.amount,
-    memberDetails: updatedMemberDetails
-  };
-
-  console.log("Updating tab with:", {
-    expenseId: newExpense.id,
-    amount: newExpense.amount,
-    items: newExpense.items.length,
-    memberUpdates: Object.fromEntries(
-      Object.entries(updatedMemberDetails).map(([uid, member]) => [
-        uid,
-        { balance: member.balance }
-      ])
-    )
-  });
-
-  try {
-    await updateDoc(tabRef, updates);
-    console.log("Manual expense added successfully");
-  } catch (error) {
-    console.error("Error updating tab with manual expense:", error);
-    throw new Error("Failed to add manual expense. Please try again.");
-  }
-}; 
+  await createExpenseInTab(tabId, newExpense, tab);
+}

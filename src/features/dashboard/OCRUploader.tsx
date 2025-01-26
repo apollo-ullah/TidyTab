@@ -122,7 +122,7 @@ export const OCRUploader: React.FC<OCRUploaderProps> = ({
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Scan Receipt</Typography>
+          <Typography variant="h6">Upload Receipt</Typography>
           <IconButton onClick={handleClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -278,4 +278,4 @@ export const OCRUploader: React.FC<OCRUploaderProps> = ({
       </DialogActions>
     </Dialog>
   );
-}; 
+} 
