@@ -20,13 +20,17 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { TabCategory } from '../../types/tab';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 
 export const CreateTab = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('restaurant');
+  const [category, setCategory] = useState<TabCategory>('restaurant');
+  const [date, setDate] = useState<Date>(new Date());
   const [createdTab, setCreatedTab] = useState<{ id: string; name: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,12 +40,10 @@ export const CreateTab = () => {
 
     setIsLoading(true);
     try {
-      const tab = await createTab({ name, description, category }, user);
-      setCreatedTab({ id: tab.id, name: tab.name });
+      const tabId = await createTab({ name, description, category, date }, user);
+      setCreatedTab({ id: tabId, name });
       toast.success('Tab created successfully!');
-      setName('');
-      setDescription('');
-      setCategory('restaurant');
+      navigate(`/tabs/${tabId}`);
     } catch (error) {
       console.error('Error creating tab:', error);
       toast.error('Failed to create tab');
@@ -250,6 +252,35 @@ export const CreateTab = () => {
                 }}
               />
 
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date"
+                  value={date}
+                  onChange={(newDate) => setDate(newDate || new Date())}
+                  disabled={isLoading}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'rgba(179, 157, 219, 0.6)',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    },
+                    '& .MuiSvgIcon-root': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+
               <FormControl>
                 <FormLabel 
                   sx={{ 
@@ -264,7 +295,7 @@ export const CreateTab = () => {
                 <RadioGroup
                   row
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => setCategory(e.target.value as TabCategory)}
                   sx={{
                     gap: 2,
                     '& .MuiRadio-root': {

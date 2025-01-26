@@ -1,15 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  enableIndexedDbPersistence,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  doc,
-  setDoc,
-  CACHE_SIZE_UNLIMITED
-} from 'firebase/firestore';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { initializeFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -23,31 +14,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with settings for better offline support and caching
+// Initialize Firestore with better cache settings
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-    tabManager: persistentMultipleTabManager()
-  })
+  localCache: {
+    synchronizeTabs: true, // Enable cross-tab synchronization
+  },
 });
-
-// Enable offline persistence with better error handling
-const setupPersistence = async () => {
-  try {
-    await enableIndexedDbPersistence(db);
-    console.log('Offline persistence enabled successfully');
-  } catch (err: any) {
-    if (err.code === 'failed-precondition') {
-      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    } else if (err.code === 'unimplemented') {
-      console.warn('The current browser does not support offline persistence.');
-    } else {
-      console.error('Error enabling offline persistence:', err);
-    }
-  }
-};
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -74,7 +48,4 @@ export const checkDatabaseConnection = async () => {
     console.error('Database connection failed:', error);
     return false;
   }
-};
-
-// Setup persistence
-setupPersistence(); 
+}; 
