@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   AppBar,
@@ -10,14 +10,14 @@ import {
   MenuItem,
   Container,
   Avatar,
-  Tooltip,
-  ListItemIcon,
   Button,
+  Grid,
+  Fab,
 } from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
+import AddIcon from '@mui/icons-material/Add';
 import LogoutIcon from '@mui/icons-material/Logout';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
 
 export const DashboardLayout = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -43,179 +43,264 @@ export const DashboardLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: '#0A0A0A' }}>
+      {/* Compact Header */}
       <AppBar 
         position="fixed" 
+        elevation={0}
         sx={{ 
           background: 'rgba(18, 18, 18, 0.8)',
           backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          height: '64px'
         }}
       >
         <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
+          <Toolbar disableGutters sx={{ height: '64px' }}>
             <Typography
               variant="h6"
+              component={Link}
+              to="/dashboard"
               sx={{
                 fontWeight: 700,
                 color: 'white',
                 textDecoration: 'none',
+                '&:hover': {
+                  color: 'primary.main'
+                }
               }}
             >
               TidyTab
             </Typography>
 
-            <Box sx={{ flexGrow: 0 }}>
-              <Button
-                onClick={handleOpenMenu}
-                sx={{
-                  borderRadius: 2,
-                  px: 1,
-                  py: 0.5,
-                  color: 'white',
-                  textTransform: 'none',
-                  background: 'rgba(255, 255, 255, 0.05)',
+            <Box sx={{ flexGrow: 1 }} />
+
+            <IconButton
+              onClick={handleOpenMenu}
+              sx={{
+                color: 'white',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              <Avatar 
+                sx={{ 
+                  width: 32,
+                  height: 32,
+                  bgcolor: 'primary.main',
+                }}
+              >
+                {user?.email?.charAt(0).toUpperCase()}
+              </Avatar>
+            </IconButton>
+
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleCloseMenu}
+              PaperProps={{
+                elevation: 0,
+                sx: {
+                  background: 'rgba(18, 18, 18, 0.95)',
+                  backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                  '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.1)',
-                  },
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                }}
-              >
-                <Avatar 
-                  sx={{ 
-                    width: 32,
-                    height: 32,
-                    bgcolor: 'primary.main',
-                  }}
-                >
-                  {user?.email?.charAt(0).toUpperCase()}
-                </Avatar>
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <Typography sx={{ fontSize: '0.9rem' }}>
-                    {user?.email?.split('@')[0]}
-                  </Typography>
-                </Box>
-                <KeyboardArrowDownIcon 
-                  sx={{ 
-                    fontSize: 20,
-                    opacity: 0.7,
-                    ml: { xs: 0, sm: 1 }
-                  }} 
-                />
-              </Button>
-              <Menu
-                sx={{ mt: '10px' }}
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                open={Boolean(anchorEl)}
-                onClose={handleCloseMenu}
-                PaperProps={{
-                  className: 'glass-card',
-                  elevation: 0,
-                  sx: {
-                    background: 'rgba(18, 18, 18, 0.8)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    overflow: 'visible',
-                    '& .MuiAvatar-root': {
-                      width: 32,
-                      height: 32,
-                      ml: -0.5,
-                      mr: 1,
-                    },
-                  },
-                }}
-              >
-                <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <Typography sx={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Signed in as
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.95rem', color: 'white', fontWeight: 500 }}>
-                    {user?.email}
-                  </Typography>
-                </Box>
-                <MenuItem 
-                  sx={{ 
-                    color: 'white',
-                    minWidth: 200,
-                    py: 1.5,
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.1)'
-                    }
-                  }}
-                >
-                  <ListItemIcon>
-                    <SettingsIcon sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
-                <MenuItem 
-                  onClick={handleSignOut}
-                  sx={{ 
-                    color: 'white',
-                    minWidth: 200,
-                    py: 1.5,
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.1)'
-                    }
-                  }}
-                >
-                  <ListItemIcon>
-                    <LogoutIcon sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
-                  </ListItemIcon>
-                  Sign Out
-                </MenuItem>
-              </Menu>
-            </Box>
+                  mt: 1.5,
+                  minWidth: 200,
+                }
+              }}
+            >
+              <MenuItem sx={{ opacity: 0.7 }}>
+                <Typography variant="body2">{user?.email}</Typography>
+              </MenuItem>
+              <MenuItem onClick={handleSignOut}>
+                <LogoutIcon sx={{ mr: 2, fontSize: 20 }} />
+                Sign Out
+              </MenuItem>
+            </Menu>
           </Toolbar>
         </Container>
       </AppBar>
 
-      {/* Main content */}
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          pt: '84px',
+          px: 3,
+          pb: 3,
           width: '100%',
-          mt: 8
+          position: 'relative'
         }}
       >
         <Container maxWidth="lg">
-          <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>
-            Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
-          </Typography>
-          
-          {/* Add your dashboard content here */}
-          <Box 
-            className="glass-card"
-            sx={{ 
-              p: 4,
-              borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Your Tabs
-            </Typography>
-            <Typography color="text.secondary">
-              No tabs created yet. Create a new tab to get started!
-            </Typography>
-          </Box>
+          <Grid container spacing={3}>
+            {/* Welcome Section */}
+            <Grid item xs={12}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Box sx={{ mb: 4 }}>
+                  <Typography 
+                    variant="h4" 
+                    sx={{ 
+                      fontWeight: 700,
+                      color: 'white',
+                      mb: 1
+                    }}
+                  >
+                    Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
+                  </Typography>
+                  <Typography 
+                    sx={{ 
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }}
+                  >
+                    Manage your tabs and track shared expenses with friends.
+                  </Typography>
+                </Box>
+              </motion.div>
+            </Grid>
+
+            {/* Quick Actions */}
+            <Grid item xs={12} md={6}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                <Box 
+                  className="glass-card"
+                  sx={{ 
+                    p: 3,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2 }}>Quick Actions</Typography>
+                  <Button
+                    component={Link}
+                    to="/tabs/new"
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    sx={{ 
+                      py: 1.5,
+                      background: 'linear-gradient(45deg, #6B46C1 30%, #805AD5 90%)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #553C9A 30%, #6B46C1 90%)',
+                      }
+                    }}
+                  >
+                    Create New Tab
+                  </Button>
+                  <Button
+                    component={Link}
+                    to="/tabs/join"
+                    variant="outlined"
+                    sx={{ 
+                      py: 1.5,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      color: 'white',
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        background: 'rgba(255, 255, 255, 0.05)'
+                      }
+                    }}
+                  >
+                    Join Existing Tab
+                  </Button>
+                </Box>
+              </motion.div>
+            </Grid>
+
+            {/* Recent Activity */}
+            <Grid item xs={12} md={6}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <Box 
+                  className="glass-card"
+                  sx={{ 
+                    p: 3,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2 }}>Recent Activity</Typography>
+                  <Box 
+                    sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      minHeight: 150,
+                      color: 'rgba(255, 255, 255, 0.5)'
+                    }}
+                  >
+                    <Typography>No recent activity</Typography>
+                  </Box>
+                </Box>
+              </motion.div>
+            </Grid>
+
+            {/* Your Tabs */}
+            <Grid item xs={12}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <Box 
+                  className="glass-card"
+                  sx={{ 
+                    p: 3,
+                    minHeight: 200
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2 }}>Your Tabs</Typography>
+                  <Box 
+                    sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      minHeight: 150,
+                      color: 'rgba(255, 255, 255, 0.5)'
+                    }}
+                  >
+                    <Typography>No tabs created yet</Typography>
+                  </Box>
+                </Box>
+              </motion.div>
+            </Grid>
+          </Grid>
         </Container>
+
+        {/* Floating Action Button */}
+        <Fab
+          color="primary"
+          aria-label="add"
+          component={Link}
+          to="/tabs/new"
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            background: 'linear-gradient(45deg, #6B46C1 30%, #805AD5 90%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #553C9A 30%, #6B46C1 90%)',
+            }
+          }}
+        >
+          <AddIcon />
+        </Fab>
       </Box>
     </Box>
   );

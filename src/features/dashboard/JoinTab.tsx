@@ -1,75 +1,115 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { joinTab } from '../services/tabService';
-import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { joinTab } from "../../services/tabService";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { Box, Typography, TextField, Button, Container } from "@mui/material";
+import { motion } from "framer-motion";
 
 export const JoinTab = () => {
+  const [tabId, setTabId] = useState("");
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tabId, setTabId] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleJoinTab = async (id: string) => {
-    if (!user) return;
-    
-    setIsLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tabId.trim() || !user) return;
+
+    setLoading(true);
     try {
-      const tab = await joinTab(id, user);
-      toast.success(`Joined ${tab.name} successfully!`);
-      navigate(`/tabs/${tab.id}`);
+      await joinTab(tabId.trim(), user);
+      toast.success("Successfully joined tab!");
+      navigate(`/tabs/${tabId.trim()}`);
     } catch (error) {
-      console.error('Error joining tab:', error);
-      toast.error('Failed to join tab. Please check the Tab ID and try again.');
+      console.error("Error joining tab:", error);
+      toast.error("Failed to join tab. Please check the ID and try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleJoinTab(tabId);
-  };
-
   return (
-    <div className="max-w-md mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Join a Tab</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Enter a Tab ID to join an existing tab.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="tabId" className="block text-sm font-medium text-gray-700">
-            Tab ID
-          </label>
-          <input
-            type="text"
-            id="tabId"
-            value={tabId}
-            onChange={(e) => setTabId(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            placeholder="Enter Tab ID"
-            required
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full btn-primary disabled:opacity-50"
+    <Box 
+      sx={{ 
+        pt: '84px',
+        minHeight: '100vh'
+      }}
+    >
+      <Container maxWidth="sm">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          {isLoading ? 'Joining...' : 'Join Tab'}
-        </button>
-      </form>
+          <Box className="glass-card" sx={{ p: 3 }}>
+            <Typography variant="h4" sx={{ mb: 3, fontWeight: 700 }}>
+              Join a Tab
+            </Typography>
+            
+            <Typography 
+              sx={{ 
+                mb: 4,
+                color: 'rgba(255, 255, 255, 0.7)'
+              }}
+            >
+              Enter the tab ID provided by your friend to join their tab.
+            </Typography>
 
-      <div className="mt-4 text-center">
-        <p className="text-sm text-gray-600">
-          Ask your friend to share the Tab ID with you.
-        </p>
-      </div>
-    </div>
+            <Box 
+              component="form" 
+              onSubmit={handleSubmit}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }}
+            >
+              <TextField
+                label="Tab ID"
+                value={tabId}
+                onChange={(e) => setTabId(e.target.value)}
+                required
+                fullWidth
+                variant="outlined"
+                disabled={loading}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'rgba(179, 157, 219, 0.6)',
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                  },
+                }}
+              />
+              
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  background: 'linear-gradient(45deg, #6B46C1 30%, #805AD5 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #553C9A 30%, #6B46C1 90%)',
+                  }
+                }}
+              >
+                {loading ? "Joining..." : "Join Tab"}
+              </Button>
+            </Box>
+          </Box>
+        </motion.div>
+      </Container>
+    </Box>
   );
 }; 
