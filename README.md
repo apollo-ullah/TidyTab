@@ -1,4 +1,4 @@
-# CircleSplit
+# TidyTab
 
 A modern group payment splitting web app with real-time updates and fun analytics.
 
